@@ -21,11 +21,13 @@ C3dglModel table;
 C3dglModel livingRoom;
 C3dglModel apple;
 C3dglModel lamp;
+C3dglModel ceilinglamp;
 
 // Textures
 GLuint idTexWood;
 GLuint idTexCloth;
 GLuint idTexNone;
+GLuint idTexNormal;
 
 float vertices[] = {
 			-4, 0, -4, 4, 0, -4, 0, 7, 0, -4, 0, 4, 4, 0, 4, 0, 7, 0,
@@ -63,10 +65,6 @@ bool init()
 	glEnable(GL_NORMALIZE);		// normalization is needed by AssImp library models
 	glShadeModel(GL_SMOOTH);	// smooth shading mode is the default one; try GL_FLAT here!
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);	// this is the default one; try GL_LINE!
-
-	//// setup lighting
-	//glEnable(GL_LIGHTING);									// --- DEPRECATED
-	//glEnable(GL_LIGHT0);									// --- DEPRECATED
 
 	// Initialise Shaders
 	C3dglShader VertexShader;
@@ -112,6 +110,7 @@ bool init()
 	if (!vase.load("models\\vase.obj")) return false;
 	if (!apple.load("models\\Apple.obj")) return false;
 	if (!lamp.load("models\\lamp.obj")) return false;
+	if (!ceilinglamp.load("models\\ceilinglamp.3ds")) return false;
 	if (!livingRoom.load("models\\LivingRoomObj\\LivingRoom.obj")) return false;
 	livingRoom.loadMaterials("models\\LivingRoomObj\\");
 	
@@ -119,10 +118,10 @@ bool init()
 	// Load Textures
 	C3dglBitmap bm;
 
-	bm.Load("models/oak.bmp", GL_RGBA);
+	bm.Load("models/Wood051_1K_Color.png", GL_RGBA);
 	if (!bm.GetBits()) return false;
 
-	glActiveTexture(GL_TEXTURE0);
+	//glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &idTexWood);
 	glBindTexture(GL_TEXTURE_2D, idTexWood);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -131,7 +130,7 @@ bool init()
 	bm.Load("models/cloth.bmp", GL_RGBA);
 	if (!bm.GetBits()) return false;
 	
-	glActiveTexture(GL_TEXTURE0);
+	//glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &idTexCloth);
 	glBindTexture(GL_TEXTURE_2D, idTexCloth);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -144,12 +143,20 @@ bool init()
 	BYTE bytes[] = { 255, 255, 255 };
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1, 1, 0, GL_BGR, GL_UNSIGNED_BYTE, &bytes);
 
+	bm.Load("models/Wood051_1K_NormalGL.png", GL_RGBA);
+	if (!bm.GetBits()) return false;
+
+	//glActiveTexture(GL_TEXTURE1);
+	glGenTextures(1, &idTexNormal);
+	glBindTexture(GL_TEXTURE_2D, idTexNormal);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bm.GetWidth(), bm.GetHeight(), 0, GL_RGBA, GL_UNSIGNED_BYTE, bm.GetBits());
 
 	// Send the texture info to the shaders
 	Program.SendUniform("texture0", 0);
-	//Program.SendUniform("textureNormal", 1);
+	Program.SendUniform("textureNormal", 1);
 	//Program.SendUniform("textureAO", 2);
-
+	//glActiveTexture(GL_TEXTURE0);
 
 
 	// Initialise the View Matrix (initial position of the camera)
@@ -180,7 +187,10 @@ void done()
 void renderScene(mat4 matrixView, float time)
 {
 	mat4 m;
-
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, idTexNone);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, idTexNone);
 	
 	Program.SendUniform("lightAmbient1.color", 0.1, 0.1, 0.1);
 	Program.SendUniform("lightAmbient2.color", 0, 0, 0);
@@ -211,8 +221,8 @@ void renderScene(mat4 matrixView, float time)
 	Program.SendUniform("lightPoint2.position", 1.95f, 3.9f, 1.36f);
 	if (lamp2)
 	{
-		Program.SendUniform("lightPoint2.diffuse", 0.5, 0.5, 0.5);
-		Program.SendUniform("lightPoint2.specular", 0.4, 0.4, 0.4);
+		Program.SendUniform("lightPoint2.diffuse", 0.2, 0.2, 0.2);
+		Program.SendUniform("lightPoint2.specular", 0.3, 0.3, 0.3);
 	}
 	else
 	{
@@ -220,11 +230,17 @@ void renderScene(mat4 matrixView, float time)
 		Program.SendUniform("lightPoint2.specular", 0.0, 0.0, 0.0);
 	}
 
+	//spotlight
+	Program.SendUniform("spotLight1.position", 0.0f, 7.0f, 0.0f);
+	Program.SendUniform("spotLight1.diffuse", 0.6, 0.5, 0.2);
+	Program.SendUniform("spotLight1.specular", 0.4, 0.4, 0.4);
+	Program.SendUniform("spotLight1.direction", 0.0, -1.0, 0.0);
+	Program.SendUniform("spotLight1.cutoff", radians(50.0));
+	Program.SendUniform("spotLight1.attenuation", 8.0f);
+
 	Program.SendUniform("materialSpecular", 0.5, 0.5, 0.5);
 	Program.SendUniform("shininess", 1.0);
 	
-	glBindTexture(GL_TEXTURE_2D, idTexNone);
-
 	// camera
 	m = matrixView;
 	m = translate(m, vec3(0.0f, 5.0f, 1.0f));
@@ -243,12 +259,16 @@ void renderScene(mat4 matrixView, float time)
 	vase.render(m);
 
 	//Program.SendUniform("material", 0.6f, 0.2f, 0.1f); //Brown
+	Program.SendUniform("useNormalMap", true);
 
 	//table
 	Program.SendUniform("materialDiffuse", 1.0f, 1.0f, 1.0f);
 	Program.SendUniform("materialSpecular", 0.5, 0.5, 0.5);
 	Program.SendUniform("shininess", 1.0);
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, idTexWood);
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, idTexNormal);
 
 	m = matrixView;
 	m = translate(m, vec3(0.0f, 0.0f, 0.0f));
@@ -256,8 +276,12 @@ void renderScene(mat4 matrixView, float time)
 	m = scale(m, vec3(0.004f, 0.004f, 0.004f));  //0.004 used by jarek maybe change scale and don't put shininess on table
 	table.render(1,m);
 	
+	Program.SendUniform("useNormalMap", false);
+	
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, idTexCloth);
-
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, idTexNone);
 	//Chairs
 	m = matrixView;
 	m = translate(m, vec3(0.0f, 0.0f, 0.0f));
@@ -293,7 +317,7 @@ void renderScene(mat4 matrixView, float time)
 	m = rotate(m, radians(0.0f), vec3(0.0f, 1.0f, 0.0f));
 	m = scale(m, vec3(.03f, .03f, .03f));
 	livingRoom.render(m);
-
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, idTexNone);
 
 	//Lamp1
@@ -314,6 +338,16 @@ void renderScene(mat4 matrixView, float time)
 	m = rotate(m, radians(85.0f), vec3(0.0f, 1.0f, 0.0f));
 	m = scale(m, vec3(0.015f, 0.015f, 0.015f));
 	lamp.render(m);
+
+	//CeilingLamp
+	Program.SendUniform("materialDiffuse", 1.0f, 0.95f, 0.0f);
+	Program.SendUniform("materialSpecular", 1.0f, 0.95f, 0.0f);
+
+	m = matrixView;
+	m = translate(m, vec3(0.0f, 18.0f, 0.0f));
+	m = rotate(m, radians(85.0f), vec3(0.0f, 1.0f, 0.0f));
+	m = scale(m, vec3(0.1f, 0.1f, 0.1f));
+	ceilinglamp.render(m);
 
 	//Apple
 	Program.SendUniform("materialDiffuse", 2.0f, 0.1f, 0.0f);

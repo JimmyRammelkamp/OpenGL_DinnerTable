@@ -15,13 +15,14 @@ uniform float shininess;
 in vec3 aVertex;
 in vec3 aNormal;
 in vec2 aTexCoord;
-//in vec3 aTangent;
-//in vec3 aBiTangent;
+in vec3 aTangent;
+in vec3 aBiTangent;
 
 out vec4 color;
 out vec4 position;
 out vec3 normal;
 out vec2 texCoord0;
+out mat3 matrixTangent;
 
 // Light declarations
 
@@ -66,6 +67,17 @@ struct POINT
 };
 uniform POINT lightPoint1, lightPoint2;
 
+//Spot Light
+struct SPOT
+{
+	vec3 position;
+	vec3 diffuse;
+	vec3 specular;
+	vec3 direction;
+	float cutoff;
+	float attenuation;
+};
+uniform SPOT spotLight1;
 
 void main(void) 
 {
@@ -73,6 +85,12 @@ void main(void)
 	position = matrixModelView * vec4(aVertex, 1.0);
 	gl_Position = matrixProjection * position;
 	normal = normalize(mat3(matrixModelView) * aNormal);
+
+	// calculate tangent local system transformation
+	vec3 tangent = normalize(mat3(matrixModelView) * aTangent);
+	vec3 biTangent = normalize(mat3(matrixModelView) * aBiTangent);
+	matrixTangent = mat3(tangent, biTangent, normal);
+
 
 	texCoord0 = aTexCoord;
 
